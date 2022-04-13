@@ -24,9 +24,15 @@ def on_message(client, userdata, msg):
     """The callback for when a PUBLISH message is received from the server."""
     # setting qos to 1
     # mqtt_client.publish("uuidReply","RPIpayload",2)
-    reply = "UUID recieved: " + str(msg.payload)
+    reply = "UUID recieved; approved! " + str(msg.payload)
+    topSplit = str(msg.topic).split("/")
+    print(topSplit)
+    if( (topSplit[0] == "to") and (topSplit[1] == "broker") ):
+        publish.single("from/broker"+topSplit[2],reply,hostname=MQTT_ADDRESS)   
+        print("publishing: " + "from/broker: "+topSplit[2] + ' ' + reply)
     #publish.single("uuidReply",reply,hostname=MQTT_ADDRESS)
     #publish.single("painlessMesh/to/toNodes",reply,hostname=MQTT_ADDRESS)
+    #print(msg.topic + ' ' + (msg.payload).decode())
     print(msg.topic + ' ' + str(msg.payload))
     #print("  publishing : " + reply)
 
