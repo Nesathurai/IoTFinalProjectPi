@@ -65,20 +65,24 @@ def on_message(client, userdata, msg):
         # if not found, add to database
         if(query.count() == 0):
             accept = "False"
-            print("You have 5 seconds to answer")
+            name = "anon"
+            print("You have 15 seconds to answer")
 
-            i, o, e = select.select([sys.stdin], [], [], 5)
+            i, o, e = select.select([sys.stdin], [], [], 15)
 
             if (i):
+                print("Enter name: ")
+                name=sys.stdin.readline().strip()
+                print("You said name = ", name)
+                print("Enter access: ")
                 accept=sys.stdin.readline().strip()
-                print("You said", accept)
+                print("You set access = ", accept)
                 
             else:
-                print("You said nothing")
-
+                print("You said nothing, using default values")
 
             # add user; change name later
-            user = User(uid=message, name="Allan Nesathurai", access=accept, lastAccessed=now)
+            user = User(uid=message, name=name, access=accept, lastAccessed=now)
             session.add(user)
             session.commit()
             publish.single("from/broker"+topSplit[2],replyAdd,hostname=MQTT_ADDRESS)  
