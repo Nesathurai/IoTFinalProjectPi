@@ -1,12 +1,41 @@
 import tkinter as tk
 from tkinter import ttk
+
 from PIL import Image, ImageTk
+
+import mqtt_handling
+import ble_utils
+
+from db import Session, engine
+from models import Node
+
+session = Session()
+
+if session.query(Node).filter_by(id="A").first():
+    session.add(Node(id="A", size="medium", distance=4.0, busyness=0.0))
+if session.query(Node).filter_by(id="B").first():
+    session.add(Node(id="B", size="medium", distance=4.12, busyness=0.0))
+if session.query(Node).filter_by(id="C").first():
+    session.add(Node(id="C", size="medium", distance=4.47, busyness=0.0))
+if session.query(Node).filter_by(id="D").first():
+    session.add(Node(id="D", size="large", distance=5.0, busyness=0.0))
+if session.query(Node).filter_by(id="E").first():
+    session.add(Node(id="E", size="medium", distance=4.47, busyness=0.0))
+if session.query(Node).filter_by(id="F").first():
+    session.add(Node(id="F", size="medium", distance=4.12, busyness=0.0))
+if session.query(Node).filter_by(id="G").first():
+    session.add(Node(id="G", size="large", distance=4.0, busyness=0.0))
+
+session.commit()
 
 
 class App(tk.Tk):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, controller=None, *args, **kwargs):
+        print(":: INIT APP ::")
+        super().__init__(*args, **kwargs)
         self.title("Decentralized RFID Tracking and Occupancy Control Using ESP32s")
+
+        #mqtt_handling.mqtt_init()
 
         self.nodes = {
             "A": [0, None],
@@ -53,8 +82,16 @@ class App(tk.Tk):
         self.nodes["You Are Here"].image = YAH
         self.nodes["You Are Here"].grid(row=3, column=0)
 
-        self.after(1000, lambda: self.update_node("D"))
-        self.after(1000, lambda: self.update_node("G"))
+        self.after(2500, lambda: self.update_med_node("A"))
+        self.after(2500, lambda: self.update_med_node("B"))
+        self.after(2500, lambda: self.update_med_node("C"))
+        self.after(2500, lambda: self.update_large_node("D"))
+        self.after(2500, lambda: self.update_med_node("E"))
+        self.after(2500, lambda: self.update_med_node("F"))
+        self.after(2500, lambda: self.update_large_node("G"))
+        
+        print(":: INIT BLE STATICS ::")
+        #self.after(10 * 60, self.reset_ble)
 
     def resize_image(self, img: str, ratio: float = 0.14):
         medium_room = Image.open(img)
@@ -62,12 +99,23 @@ class App(tk.Tk):
         self.image = medium_room.resize((width, height), Image.ANTIALIAS)
         return ImageTk.PhotoImage(self.image)
 
-    def update_node(self, node: str):
-        self.nodes[node][0] = (self.nodes[node][0] + 1) % 6
+    def update_med_node(self, node: str):
+        self.nodes[node][0] = (self.nodes[node][0] + 1) % 5
+        img = self.resize_image(f"./images/medium_room_{self.nodes[node][0]}.png", 0.14)
+        self.nodes[node][1].configure(image=img)
+        self.nodes[node][1].image = img
+        self.after(2500, lambda: self.update_med_node(node))
+
+    def update_large_node(self, node: str):
+        self.nodes[node][0] = (self.nodes[node][0] + 1) % 5
         img = self.resize_image(f"./images/large_room_{self.nodes[node][0]}.png", 0.37)
         self.nodes[node][1].configure(image=img)
         self.nodes[node][1].image = img
-        self.after(250, lambda: self.update_node(node))
+        self.after(2500, lambda: self.update_large_node(node))
+
+    def reset_ble(self):
+        ble_utils.BLE.reset(session.query(Node).all())
+        self.after(10 * 60, self.reset_ble)
 
 
 if __name__ == "__main__":
