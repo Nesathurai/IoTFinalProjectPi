@@ -143,16 +143,10 @@ def on_connect(client, userdata, flags, rc):
 
 def on_message(client, userdata, msg):
     """The callback for when a PUBLISH message is received from the server."""
-    # message = str(msg.payload.decode())
-    # print("in general on message callback")
-    # print(msg.topic + " " + str(message))
     if msg.topic.startswith("to/broker/BLE"):
-        # print("in ble broker statement")
-        # message = str(msg.payload.decode())
-        print(msg.topic + " " + str(msg.payload.decode()))
+	
         ble_utils.BLE.update_node(msg, session)
     elif msg.topic.startswith("to/broker"):
-        print("in to broker statement")
         to_broker(msg)
 
 

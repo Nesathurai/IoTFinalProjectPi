@@ -13,7 +13,7 @@ class BLE_Filter:
         self.frequency = 0.5
         self.occupation_rate = 0.40
 
-    def update_node(self, msg):
+    def update_node(self, msg, session):
         """
         Distance / Frequency = # of measurement cycles while distance is traversed.
         # cycles * Ppl per cycle = # people who will check the room before you arrive.
@@ -21,10 +21,24 @@ class BLE_Filter:
         occupation_rate ^ ppl who will be there before you = Probability the room is occupied.
         Multiply by 5 to translate into five stages [0..4]self.frequency
         """
-        node: Node = Node.query.filter_by(id=msg.id).all()
+        # node -> mac address
+        topic = str(msg.topic)
+        split = topic.split("/")
+        node = session.query(Node).filter_by(id=split[-1])
 
+        # grab message
+        message = msg.payload.decode().split("\n")
+
+        if node.count() == 0:
+            # if it does not exist, add to database
+            session.add(Node(id=split[0], size="medium", distance=4.0, busyness=0.0))
+        # problem here with iterating over mqtt message -> mqtt message object is not iterable
+
+        print(message)
         visitors = [
-            dev for dev in msg if dev[0] not in self.statics and dev[1] > self.threshold
+            dev.split(";")[0]
+            for dev in message
+            if dev[0] not in self.statics and int(dev[1]) > self.threshold
         ]
         current_busyness = (
             (1 - self.occupation_rate)
