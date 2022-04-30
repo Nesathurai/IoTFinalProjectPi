@@ -5,11 +5,11 @@ from datetime import datetime
 from tkinter import ttk
 
 import paho.mqtt.client as mqtt
-import paho.mqtt.publish as publish
+from paho.mqtt import publish
 from PIL import Image, ImageTk
 
 import ble_utils
-from db import Session, engine
+from db import Session
 from models import Node, User
 
 MQTT_ADDRESS = "10.20.126.8"
@@ -34,7 +34,9 @@ if not session.query(Node).filter_by(id="40:91:51:BE:F5:D4").first():
         Node(id="40:91:51:BE:F5:D4", size="medium", distance=4.47, busyness=0.0)
     )
 if not session.query(Node).filter_by(id="30:C6:F7:03:79:30").first():
-    session.add(Node(id="30:C6:F7:03:79:30", size="large", distance=5.00, busyness=0.0))
+    session.add(
+        Node(id="30:C6:F7:03:79:30", size="large", distance=5.00, busyness=0.00)
+    )
 if not session.query(Node).filter_by(id="E").first():
     session.add(Node(id="E", size="medium", distance=4.47, busyness=0.0))
 if not session.query(Node).filter_by(id="F").first():
@@ -44,70 +46,77 @@ if not session.query(Node).filter_by(id="G").first():
 
 session.commit()
 
+NODES = {
+    "40:91:51:9A:A5:DC": [None, set(), False],
+    "30:C6:F7:03:68:38": [None, set(), False],
+    "40:91:51:BE:F5:D4": [None, set(), False],
+    "30:C6:F7:03:79:30": [None, set(), False],
+    "E": [None, set(), False],
+    "F": [None, set(), False],
+    "G": [None, set(), False],
+}
+
 
 class App(tk.Tk):
-    def __init__(self, controller=None, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
+        """Initialization for TKinter GUI.
+
+        NODES:
+            Dictionary of all nodes in the system. The key is the MAC, and the value is
+            the image for the GUI, a set of the static devices found, and whether that
+            set of static devices should be reinitialized.
+        """
         print(":: INIT APP ::")
         super().__init__(*args, **kwargs)
         self.title("Decentralized RFID Tracking and Occupancy Control Using ESP32s")
 
         mqtt_init()
 
-        self.nodes = {
-            "A": [0, None],
-            "B": [0, None],
-            "C": [0, None],
-            "D": [0, None],
-            "E": [0, None],
-            "F": [0, None],
-            "G": [0, None],
-        }
         medium = self.resize_image("./images/medium_room_0.png")
         large = self.resize_image("./images/large_room_0.png", 0.37)
         YAH = self.resize_image("./images/here.png", 0.25)
 
-        self.nodes["A"][1] = ttk.Label(self, image=medium)
-        self.nodes["A"][1].image = medium
-        self.nodes["A"][1].grid(row=0, column=0, sticky="e")
+        NODES["40:91:51:9A:A5:DC"][0] = ttk.Label(self, image=medium)
+        NODES["40:91:51:9A:A5:DC"][0].image = medium
+        NODES["40:91:51:9A:A5:DC"][0].grid(row=0, column=0, sticky="e")
 
-        self.nodes["B"][1] = ttk.Label(self, image=medium)
-        self.nodes["B"][1].image = medium
-        self.nodes["B"][1].grid(row=0, column=1, sticky="e")
+        NODES["30:C6:F7:03:68:38"][0] = ttk.Label(self, image=medium)
+        NODES["30:C6:F7:03:68:38"][0].image = medium
+        NODES["30:C6:F7:03:68:38"][0].grid(row=0, column=1, sticky="e")
 
-        self.nodes["C"][1] = ttk.Label(self, image=medium)
-        self.nodes["C"][1].image = medium
-        self.nodes["C"][1].grid(row=0, column=2, sticky="e")
+        NODES["40:91:51:BE:F5:D4"][0] = ttk.Label(self, image=medium)
+        NODES["40:91:51:BE:F5:D4"][0].image = medium
+        NODES["40:91:51:BE:F5:D4"][0].grid(row=0, column=2, sticky="e")
 
-        self.nodes["D"][1] = ttk.Label(self, image=large)
-        self.nodes["D"][1].image = large
-        self.nodes["D"][1].grid(row=0, column=3, sticky="e")
+        NODES["30:C6:F7:03:79:30"][0] = ttk.Label(self, image=large)
+        NODES["30:C6:F7:03:79:30"][0].image = large
+        NODES["30:C6:F7:03:79:30"][0].grid(row=0, column=3, sticky="e")
 
-        self.nodes["E"][1] = ttk.Label(self, image=medium)
-        self.nodes["E"][1].image = medium
-        self.nodes["E"][1].grid(row=1, column=3, sticky="e")
+        NODES["E"][0] = ttk.Label(self, image=medium)
+        NODES["E"][0].image = medium
+        NODES["E"][0].grid(row=1, column=3, sticky="e")
 
-        self.nodes["F"][1] = ttk.Label(self, image=medium)
-        self.nodes["F"][1].image = medium
-        self.nodes["F"][1].grid(row=2, column=3, sticky="e")
+        NODES["F"][0] = ttk.Label(self, image=medium)
+        NODES["F"][0].image = medium
+        NODES["F"][0].grid(row=2, column=3, sticky="e")
 
-        self.nodes["G"][1] = ttk.Label(self, image=large)
-        self.nodes["G"][1].image = large
-        self.nodes["G"][1].grid(row=3, column=3, sticky="e")
+        NODES["G"][0] = ttk.Label(self, image=large)
+        NODES["G"][0].image = large
+        NODES["G"][0].grid(row=3, column=3, sticky="e")
 
-        self.nodes["You Are Here"] = ttk.Label(self, image=YAH)
-        self.nodes["You Are Here"].image = YAH
-        self.nodes["You Are Here"].grid(row=3, column=0)
+        self.yah = ttk.Label(self, image=YAH)
+        self.yah.image = YAH
+        self.yah.grid(row=3, column=0)
 
-        self.after(2500, lambda: self.update_med_node("A"))
-        self.after(2500, lambda: self.update_med_node("B"))
-        self.after(2500, lambda: self.update_med_node("C"))
-        self.after(2500, lambda: self.update_large_node("D"))
+        self.after(2500, lambda: self.update_med_node("40:91:51:9A:A5:DC"))
+        self.after(2500, lambda: self.update_med_node("30:C6:F7:03:68:38"))
+        self.after(2500, lambda: self.update_med_node("40:91:51:BE:F5:D4"))
+        self.after(2500, lambda: self.update_large_node("30:C6:F7:03:79:30"))
         self.after(2500, lambda: self.update_med_node("E"))
         self.after(2500, lambda: self.update_med_node("F"))
         self.after(2500, lambda: self.update_large_node("G"))
 
-        print(":: INIT BLE STATICS ::")
-        # self.after(10 * 60, self.reset_ble)
+        self.after(10000, self.reset_ble)
 
     def resize_image(self, img: str, ratio: float = 0.14):
         medium_room = Image.open(img)
@@ -115,23 +124,29 @@ class App(tk.Tk):
         self.image = medium_room.resize((width, height), Image.ANTIALIAS)
         return ImageTk.PhotoImage(self.image)
 
-    def update_med_node(self, node: str):
-        self.nodes[node][0] = (self.nodes[node][0] + 1) % 5
-        img = self.resize_image(f"./images/medium_room_{self.nodes[node][0]}.png", 0.14)
-        self.nodes[node][1].configure(image=img)
-        self.nodes[node][1].image = img
-        self.after(2500, lambda: self.update_med_node(node))
+    def update_med_node(self, mac: str):
+        node = session.query(Node).filter_by(id=mac).one()
+        img = self.resize_image(
+            f"./images/medium_room_{node.busyness % 5:.0f}.png", 0.14
+        )
+        NODES[mac][0].configure(image=img)
+        NODES[mac][0].image = img
+        self.after(2500, lambda: self.update_med_node(mac))
 
-    def update_large_node(self, node: str):
-        self.nodes[node][0] = (self.nodes[node][0] + 1) % 5
-        img = self.resize_image(f"./images/large_room_{self.nodes[node][0]}.png", 0.37)
-        self.nodes[node][1].configure(image=img)
-        self.nodes[node][1].image = img
-        self.after(2500, lambda: self.update_large_node(node))
+    def update_large_node(self, mac: str):
+        node = session.query(Node).filter_by(id=mac).one()
+        img = self.resize_image(
+            f"./images/large_room_{node.busyness % 5:.0f}.png", 0.37
+        )
+        NODES[mac][0].configure(image=img)
+        NODES[mac][0].image = img
+        self.after(2500, lambda: self.update_large_node(mac))
 
     def reset_ble(self):
-        ble_utils.BLE.reset(session.query(Node).all())
-        self.after(10 * 60, self.reset_ble)
+        print(":: RESETTING STATICS ::")
+        for n, _ in NODES.items():
+            NODES[n][2] = True
+        self.after(5 * 1000 * 60, self.reset_ble)
 
 
 def on_connect(client, userdata, flags, rc):
@@ -143,18 +158,23 @@ def on_connect(client, userdata, flags, rc):
 
 def on_message(client, userdata, msg):
     """The callback for when a PUBLISH message is received from the server."""
-    # message = str(msg.payload.decode())
-    # print("in general on message callback")
-    # print(msg.topic + " " + str(message))
     if msg.topic.startswith("to/broker/BLE"):
-        # print("in ble broker statement")
-        # message = str(msg.payload.decode())
-        print(msg.topic + " " + str(msg.payload.decode()))
-        ble_utils.BLE.update_node(msg, session)
+        mac = str(msg.topic).split("/")[-1]
+        devices = [dev for dev in msg.payload.decode().split("\n") if dev]
+
+        if NODES[mac][2]:
+            print(f":: STATICS FOR NODE {mac} ::")
+            NODES[mac][1] = [dev.split(";")[0] for dev in devices]
+            NODES[mac][2] = False
+            print(NODES[mac][1])
+        else:
+            ble_utils.BLE.update_node(session, mac, devices, NODES[mac][1])
+
     elif msg.topic.startswith("to/broker"):
         print("in to broker statement")
         to_broker(msg)
 
+    session.commit()
 
 def to_broker(msg):
     now = datetime.now()
@@ -178,7 +198,6 @@ def to_broker(msg):
     now = datetime.now()
     query = session.query(User).filter_by(uid=message)
 
-    session.commit()
     # if not found, add to database
     if query.count() == 0:
         accept = "False"

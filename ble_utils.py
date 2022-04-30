@@ -1,19 +1,22 @@
-import threading
-import time
-
 from models import Node
 
 
 class BLE_Filter:
-    def __init__(self, thresh: int = -85) -> None:
+    def __init__(self, thresh: int = -80) -> None:
+        """
+        The threshold value is set to ignore singals below a certain RSSI.
+        With BLE signals below -80 are presumed to be bad.
+
+        The occupation rate is the probability that someone will occupy the room.
+
+        The frequency is the time in minutes in between each scan.
+        """
         print(":: INIT FILTER ::")
-        self.statics = set()
-        self.static_timer = 0
         self.threshold = thresh
-        self.frequency = 0.5
+        self.frequency = 45 / 60
         self.occupation_rate = 0.40
 
-    def update_node(self, msg, session):
+    def update_node(self, session, mac: str, devices: list, statics: set):
         """
         Distance / Frequency = # of measurement cycles while distance is traversed.
         # cycles * Ppl per cycle = # people who will check the room before you arrive.
@@ -21,56 +24,24 @@ class BLE_Filter:
         occupation_rate ^ ppl who will be there before you = Probability the room is occupied.
         Multiply by 5 to translate into five stages [0..4]self.frequency
         """
-        # node -> mac address
-        topic = str(msg.topic)
-        split = topic.split("/")
-        node = session.query(Node).filter_by(id=split[-1])
+        print(f":: UPDATE NODE {mac} ::")
+        node = session.query(Node).filter_by(id=mac).one()
+        print(node)
 
-        # grab message
-        message = msg.payload.decode().split("\n")
+        addresses = [(dev.split(";")[0], dev.split(";")[1]) for dev in devices if dev]
 
-        if node.count() == 0:
-            # if it does not exist, add to database
-            session.add(Node(id=split[0], size="medium", distance=4.0, busyness=0.0))
-        # problem here with iterating over mqtt message -> mqtt message object is not iterable
-
-        print(message)
+        print(addresses)
         visitors = [
-            dev.split(";")[0]
-            for dev in message
-            if dev[0] not in self.statics and int(dev[1]) > self.threshold
+            dev
+            for dev in addresses
+            if dev[0] not in statics and int(dev[1]) > self.threshold
         ]
-        current_busyness = (
-            (1 - self.occupation_rate)
-            ** (len(visitors) * node.distance / self.frequency)
-        ) * 5
+        print(visitors)
 
-        freq_ratio = self.frequency / node.distance
-        node.busyness = (1 - freq_ratio) * node.busyness + freq_ratio * current_busyness
-        node.busyness = min(4, node.busyness)
-
-    def reset(self, nodes: list):
-        print(":: CLEAR STATICS ::")
-        self.statics.clear()
-        self.static_timer = time.time()
-        for node in nodes:
-            print(":: LOOPING THROUGH NODES A ::")
-            response = node.response
-            for ble_device in response:
-                self.statics.add(ble_device[0])
-
-        time.sleep(30)
-
-        temp = set()
-        for node in nodes:
-            print(":: LOOPING THROUGH NODES ::")
-            print(node)
-            # wait for response from X node
-            response = node.response
-            for ble_device in response:
-                temp.add(ble_device[0])
-
-        self.statics.intersection_update(temp)
+        temp_busy = (1 - ((1 - self.occupation_rate) ** len(visitors))) * 5
+        freq_ratio = 3 * self.frequency / node.distance
+        busyness = (1 - freq_ratio) * node.busyness + freq_ratio * temp_busy
+        node.busyness = min(4, busyness)
 
 
 BLE = BLE_Filter()
