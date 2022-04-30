@@ -13,7 +13,7 @@ class BLE_Filter:
         """
         print(":: INIT FILTER ::")
         self.threshold = thresh
-        self.frequency = 45 / 60
+        self.frequency = 30 / 60
         self.occupation_rate = 0.40
 
     def update_node(self, session, mac: str, devices: list, statics: set):
@@ -39,7 +39,7 @@ class BLE_Filter:
         print(visitors)
 
         temp_busy = (1 - ((1 - self.occupation_rate) ** len(visitors))) * 5
-        freq_ratio = 3 * self.frequency / node.distance
+        freq_ratio = 1.5 * self.frequency / node.distance
         busyness = (1 - freq_ratio) * node.busyness + freq_ratio * temp_busy
         node.busyness = min(4, busyness)
 
