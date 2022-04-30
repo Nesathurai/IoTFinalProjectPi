@@ -24,7 +24,7 @@ class BLE_Filter:
         occupation_rate ^ ppl who will be there before you = Probability the room is occupied.
         Multiply by 5 to translate into five stages [0..4]self.frequency
         """
-        print(f":: UPDATE NODE {mac} ::")
+        print(f"\n:: UPDATE NODE {mac} ::")
         node = session.query(Node).filter_by(id=mac).one()
         print(node)
 

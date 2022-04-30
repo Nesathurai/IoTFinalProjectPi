@@ -163,7 +163,7 @@ def on_message(client, userdata, msg):
         devices = [dev for dev in msg.payload.decode().split("\n") if dev]
 
         if NODES[mac][2]:
-            print(f":: STATICS FOR NODE {mac} ::")
+            print(f"\n:: STATICS FOR NODE {mac} ::")
             NODES[mac][1] = [dev.split(";")[0] for dev in devices]
             NODES[mac][2] = False
             print(NODES[mac][1])
