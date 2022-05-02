@@ -47,13 +47,13 @@ if not session.query(Node).filter_by(id="G").first():
 session.commit()
 
 NODES = {
-    "40:91:51:9A:A5:DC": [None, set(), False],
-    "30:C6:F7:03:68:38": [None, set(), False],
-    "40:91:51:BE:F5:D4": [None, set(), False],
-    "30:C6:F7:03:79:30": [None, set(), False],
-    "E": [None, set(), False],
-    "F": [None, set(), False],
-    "G": [None, set(), False],
+    "40:91:51:9A:A5:DC": [None, set(), False, ""],
+    "30:C6:F7:03:68:38": [None, set(), False, ""],
+    "40:91:51:BE:F5:D4": [None, set(), False, ""],
+    "30:C6:F7:03:79:30": [None, set(), False, ""],
+    "E": [None, set(), False, ""],
+    "F": [None, set(), False, ""],
+    "G": [None, set(), False, ""],
 }
 
 
@@ -76,31 +76,73 @@ class App(tk.Tk):
         large = self.resize_image("./images/large_room_0.png", 0.37)
         YAH = self.resize_image("./images/here.png", 0.25)
 
-        NODES["40:91:51:9A:A5:DC"][0] = ttk.Label(self, image=medium)
+        NODES["40:91:51:9A:A5:DC"][0] = ttk.Label(
+            self,
+            image=medium,
+            text="AVAILABLE",
+            compound="center",
+            font=("consolas", 25),
+        )
         NODES["40:91:51:9A:A5:DC"][0].image = medium
         NODES["40:91:51:9A:A5:DC"][0].grid(row=0, column=0, sticky="e")
 
-        NODES["30:C6:F7:03:68:38"][0] = ttk.Label(self, image=medium)
+        NODES["30:C6:F7:03:68:38"][0] = ttk.Label(
+            self,
+            image=medium,
+            text="AVAILABLE",
+            compound="center",
+            font=("consolas", 25),
+        )
         NODES["30:C6:F7:03:68:38"][0].image = medium
         NODES["30:C6:F7:03:68:38"][0].grid(row=0, column=1, sticky="e")
 
-        NODES["40:91:51:BE:F5:D4"][0] = ttk.Label(self, image=medium)
+        NODES["40:91:51:BE:F5:D4"][0] = ttk.Label(
+            self,
+            image=medium,
+            text="AVAILABLE",
+            compound="center",
+            font=("consolas", 25),
+        )
         NODES["40:91:51:BE:F5:D4"][0].image = medium
         NODES["40:91:51:BE:F5:D4"][0].grid(row=0, column=2, sticky="e")
 
-        NODES["30:C6:F7:03:79:30"][0] = ttk.Label(self, image=large)
+        NODES["30:C6:F7:03:79:30"][0] = ttk.Label(
+            self,
+            image=large,
+            text="AVAILABLE",
+            compound="center",
+            font=("consolas", 25),
+        )
         NODES["30:C6:F7:03:79:30"][0].image = large
         NODES["30:C6:F7:03:79:30"][0].grid(row=0, column=3, sticky="e")
 
-        NODES["E"][0] = ttk.Label(self, image=medium)
+        NODES["E"][0] = ttk.Label(
+            self,
+            image=medium,
+            text="AVAILABLE",
+            compound="center",
+            font=("consolas", 25),
+        )
         NODES["E"][0].image = medium
         NODES["E"][0].grid(row=1, column=3, sticky="e")
 
-        NODES["F"][0] = ttk.Label(self, image=medium)
+        NODES["F"][0] = ttk.Label(
+            self,
+            image=medium,
+            text="AVAILABLE",
+            compound="center",
+            font=("consolas", 25),
+        )
         NODES["F"][0].image = medium
         NODES["F"][0].grid(row=2, column=3, sticky="e")
 
-        NODES["G"][0] = ttk.Label(self, image=large)
+        NODES["G"][0] = ttk.Label(
+            self,
+            image=large,
+            text="AVAILABLE",
+            compound="center",
+            font=("consolas", 25),
+        )
         NODES["G"][0].image = large
         NODES["G"][0].grid(row=3, column=3, sticky="e")
 
@@ -171,32 +213,31 @@ def on_message(client, userdata, msg):
             ble_utils.BLE.update_node(session, mac, devices, NODES[mac][1])
 
     elif msg.topic.startswith("to/broker"):
-        print("in to broker statement")
         to_broker(msg)
 
     session.commit()
 
+
 def to_broker(msg):
     now = datetime.now()
-    message = str(msg.payload.decode())
-    print(msg.topic + " " + str(msg.payload))
+    uid = msg.payload.decode()
 
-    replyAdd = (
-        "Added to database: uid = "
-        + message
-        + "; name = Allan Nesathurai; access = false ; date_accessed = "
-        + now.strftime("%d/%m/%Y %H:%M:%S")
-    )
+    print()
+    print(msg.topic + " " + msg.payload.decode())
+
+    replyAdd = "Added to database: uid = " + uid + now.strftime("%d/%m/%Y %H:%M:%S")
 
     replyDeny = (
-        "User with uid: " + message + " has been denied access. Please try again later."
+        "User with uid: " + uid + " has been denied access. Please try again later."
     )
 
-    replyApproved = "User with uid: " + message + " has been approved access!"
+    replyApproved = "User with uid: " + uid + " has been approved access!"
+    replyFreed = "User with uid: " + uid + " has exited room."
 
     # check if user in database
     now = datetime.now()
-    query = session.query(User).filter_by(uid=message)
+    query = session.query(User).filter_by(uid=uid)
+    mac = msg.topic.split("/")[-1]
 
     # if not found, add to database
     if query.count() == 0:
@@ -218,29 +259,31 @@ def to_broker(msg):
             print("You said nothing, using default values")
 
         # add user; change name later
-        user = User(uid=message, name=name, access=accept, lastAccessed=now)
+        user = User(uid=uid, name=name, access=accept, lastAccessed=now)
         session.add(user)
         session.commit()
-        publish.single(
-            "from/broker" + msg.topic.split("/")[2], replyAdd, hostname=MQTT_ADDRESS
-        )
+        publish.single("from/broker" + mac, replyAdd, hostname=MQTT_ADDRESS)
         print(replyAdd)
 
     # now, see if user has access or not
-    query = session.query(User).filter_by(uid=message, access="True")
+    query = session.query(User).filter_by(uid=uid, access="True")
 
     # user has no access, or not found
-    if query.count() == 0:
+    if query.count() and NODES[mac][0].cget("text") == "AVAILABLE":
+        NODES[mac][0].configure(text="OCCUPIED")
+        NODES[mac][3] = uid
         publish.single(
-            "from/broker" + msg.topic.split("/")[2], replyDeny, hostname=MQTT_ADDRESS
-        )
-        print(replyDeny)
-    else:
-        publish.single(
-            "from/broker" + msg.topic.split("/")[2],
+            "from/broker" + mac,
             replyApproved,
             hostname=MQTT_ADDRESS,
         )
+        print(replyApproved)
+    elif query.count() and NODES[mac][3] == uid:
+        NODES[mac][0].configure(text="AVAILABLE")
+        publish.single("from/broker" + mac, replyFreed, hostname=MQTT_ADDRESS)
+        print(replyFreed)
+    else:
+        publish.single("from/broker" + mac, replyDeny, hostname=MQTT_ADDRESS)
         print(replyDeny)
 
 
